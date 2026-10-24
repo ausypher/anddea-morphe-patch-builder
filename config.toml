@@ -13,6 +13,7 @@ build-mode = "apk"
 arch = "arm64-v8a"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
+patcher-args = "-OappIcon=mmt -OselectedTranslations=ru-rRU -OselectedStringResources=ru"
 
 [Music]
 enabled = false
