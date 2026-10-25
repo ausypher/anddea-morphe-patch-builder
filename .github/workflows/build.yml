@@ -6,9 +6,9 @@ on:
         type: boolean
         required: false
         default: true
-    channel:
-      type: string
-      required: true
+      channel:
+        type: string
+        required: true
 
   workflow_dispatch:
     inputs:
