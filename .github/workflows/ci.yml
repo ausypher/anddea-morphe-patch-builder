@@ -50,4 +50,6 @@ jobs:
     needs: check
     uses: ./.github/workflows/build.yml
     if: ${{ needs.check.outputs.SHOULD_BUILD == 1 }}
+    with:
+      channel: dev
     secrets: inherit
