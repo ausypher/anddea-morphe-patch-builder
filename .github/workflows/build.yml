@@ -107,7 +107,7 @@ jobs:
           echo "Next versionCode: $NEXT_VER_CODE"
 
       - name: Build modules/APKs
-        run: ./build.sh "$CONFIG_FILE"
+        run: if [ -f "config.json" ]; then ./build.sh config.json; else ./build.sh "$CONFIG_FILE"; fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: $GITHUB_REPOSITORY
