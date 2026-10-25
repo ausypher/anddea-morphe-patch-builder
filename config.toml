@@ -5,7 +5,7 @@ patches-version = "dev"
 cli-version = "latest"
 
 [YouTube]
-app-name = "YouTube"
+app-name = "YouTube-Anddea"
 enabled = true
 patches-source = "anddea/revanced-patches"
 cli-source = "MorpheApp/morphe-cli"
