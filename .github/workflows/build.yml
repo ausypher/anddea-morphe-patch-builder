@@ -129,15 +129,6 @@ jobs:
 
           echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
           echo "PATCH_VERSION=$PATCH_VERSION" >> "$GITHUB_OUTPUT"
-
-          echo "Created release $TAG ($PATCH_VERSION)"
-
-
-          gh release upload "$TAG" ./build/* --clobber
-
-          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
-          echo "PATCH_VERSION=$PATCH_VERSION" >> "$GITHUB_OUTPUT"
-
           echo "Created release $TAG ($PATCH_VERSION)"
 
       - name: Update modules changelog and update json
