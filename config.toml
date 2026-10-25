@@ -14,7 +14,7 @@ build-mode = "apk"
 arch = "arm64-v8a"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
-patcher-args = "-e 'Change header' -Ocustom=res -e 'Custom branding' -OappIcon=custom -OcustomIcon=res -OselectedTranslations=ru-rRU -OselectedStringResources=ru"
+patcher-args = "-e 'Custom branding for YouTube' -OappIcon=res -e 'Translations for YouTube' -OselectedStringResources=ru-rRU -OselectedTranslations=ru-rRU"
 
 [Music]
 enabled = false
