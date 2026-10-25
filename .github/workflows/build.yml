@@ -145,6 +145,10 @@ jobs:
           DATE=$(date -u +%F)
           TAG=""
           RELEASE_PREFIX="$CHANNEL-"
+          PRERELEASE_ARGS=()
+          if [ "$CHANNEL" = "dev" ]; then
+            PRERELEASE_ARGS+=(--prerelease)
+          fi
           MAX_ATTEMPTS=100
 
           for ATTEMPT in $(seq 1 "$MAX_ATTEMPTS"); do
@@ -161,8 +165,9 @@ jobs:
 
             if gh release create "$CANDIDATE" \
               --target "$GITHUB_SHA" \
-              --title "$PATCH_VERSION" \
-              --notes "$BODY"; then
+              --title "$PATCH_VERSION ($CHANNEL)" \
+              --notes "$BODY" \
+              "${PRERELEASE_ARGS[@]}"; then
               TAG="$CANDIDATE"
               break
             fi
