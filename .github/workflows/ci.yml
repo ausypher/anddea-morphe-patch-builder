@@ -1,8 +1,6 @@
 name: CI
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 0-23/3 * * *"
 
 jobs:
   check:
@@ -52,4 +50,6 @@ jobs:
     needs: check
     uses: ./.github/workflows/build.yml
     if: ${{ needs.check.outputs.SHOULD_BUILD == 1 }}
+    with:
+      channel: dev
     secrets: inherit

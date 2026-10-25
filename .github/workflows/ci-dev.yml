@@ -1,0 +1,52 @@
+name: CI Dev
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0-23/3 * * *"
+
+jobs:
+  check:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    outputs:
+      SHOULD_BUILD: ${{ steps.should_build.outputs.SHOULD_BUILD }}
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: "zulu"
+          java-version: "21"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Should build?
+        id: should_build
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CONFIG="config-dev.toml"
+          UPDATE_BRANCH="update-dev"
+          if ! git fetch origin "$UPDATE_BRANCH" 2>/dev/null || ! git checkout "origin/$UPDATE_BRANCH" -- build.md 2>/dev/null; then
+            echo "No previous dev build state; building."
+            echo "SHOULD_BUILD=1" >> "$GITHUB_OUTPUT"
+          else
+            UPDATE_CFG=$(./build.sh "$CONFIG" --config-update)
+            if [ -n "$UPDATE_CFG" ]; then
+              echo "$UPDATE_CFG"
+              echo "SHOULD_BUILD=1" >> "$GITHUB_OUTPUT"
+            else
+              echo "SHOULD_BUILD=0" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+  build:
+    needs: check
+    if: ${{ needs.check.outputs.SHOULD_BUILD == '1' }}
+    permissions: write-all
+    uses: ./.github/workflows/build.yml
+    with:
+      channel: "dev"
+    secrets: inherit

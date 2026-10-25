@@ -84,7 +84,7 @@ get_prebuilts() {
 		if [ "$ver" = "dev" ]; then
 		    local resp all_releases
 		    resp=$(gh_req "$rv_rel" -) || return 1
-		    all_releases=$(jq 'sort_by(.created_at) | reverse' <<<"$resp")
+		    all_releases=$(jq 'map(select(.draft == false and .prerelease == true)) | sort_by(.published_at // .created_at) | reverse' <<<"$resp")
 		    ver=$(jq -e -r '.[0].tag_name' <<<"$all_releases") || return 1
 		fi
 		if [ "$ver" = "latest" ]; then
@@ -198,7 +198,7 @@ config_update() {
 			local rv_rel="https://api.github.com/repos/${PATCHES_SRC}/releases"
 			if [ "$PATCHES_VER" = "dev" ]; then
 			    local all_releases
-			    all_releases=$(gh_req "$rv_rel" - | jq 'sort_by(.created_at) | reverse')
+			    all_releases=$(gh_req "$rv_rel" - | jq 'map(select(.draft == false and .prerelease == true)) | sort_by(.published_at // .created_at) | reverse')
 			    last_patches=$(jq -e -r '.[0]' <<<"$all_releases") || continue
 			elif [ "$PATCHES_VER" = "latest" ]; then
 				last_patches=$(gh_req "$rv_rel/latest" -) || continue
@@ -849,7 +849,7 @@ build_rv() {
 			"${app_name} ${args[rv_brand]}" \
 			"${version} (patches ${patches_ver})" \
 			"${app_name} ${args[rv_brand]} Morphe module" \
-			"https://raw.githubusercontent.com/${GITHUB_REPOSITORY-}/update/${upj}" \
+			"https://raw.githubusercontent.com/${GITHUB_REPOSITORY-}/${UPDATE_BRANCH:-update}/${upj}" \
 			"$base_template"
 
 		local module_output="${app_name_l}-${rv_brand_f}-module-v${version_f}-${arch_f}.zip"
