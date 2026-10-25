@@ -116,8 +116,8 @@ jobs:
 
           ls -lh ./build/*
 
-          PATCH_VERSION=$(grep -m1 '^Patches:' build.md |
-            grep -oE '[0-9]+(\.[0-9]+)+' | head -n1 || true)
+          PATCH_VERSION=$(sed -n 's/^Patches:[[:space:]]*//p' build.md |
+          head -n1 | sed 's/[[:space:]]*$//')
 
           if [ -z "$PATCH_VERSION" ]; then
             echo "::error::Could not determine patch version from build.md"
