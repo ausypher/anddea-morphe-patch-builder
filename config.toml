@@ -28,6 +28,3 @@ patcher-args = "-e 'Custom branding for YouTube Music' -OappIcon=mmt -e 'Theme' 
 
 [GooglePhotos]
 enabled = false
-
-[GooglePhotos]
-enabled = false
