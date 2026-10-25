@@ -130,6 +130,18 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Mark Dev APKs clearly without changing Stable filenames.
+          if [ "$CHANNEL" = "dev" ]; then
+            for FILE in ./build/*.apk; do
+              [ -f "$FILE" ] || continue
+              BASENAME="$(basename "$FILE")"
+              case "$BASENAME" in
+                dev-*) continue ;;
+              esac
+              mv -- "$FILE" "./build/dev-$BASENAME"
+            done
+          fi
+
           ls -lh ./build/*
 
           PATCH_VERSION=$(grep -m1 '^Patches:' build.md |
