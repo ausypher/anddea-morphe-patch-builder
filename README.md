@@ -2,7 +2,7 @@
 [![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/rvc_magisk)
 [![CI](https://github.com/elohim-etz/morphe-builder/actions/workflows/ci.yml/badge.svg?event=schedule)](https://github.com/elohim-etz/morphe-builder/actions/workflows/ci.yml)
 
-Extensive Morphe Builder
+Extensive Morphe Builder (Anddea patches)
 
 Get the [latest CI release](https://github.com/elohim-etz/morphe-builder/releases).
 
