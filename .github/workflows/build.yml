@@ -106,6 +106,31 @@ jobs:
           echo "Previous versionCode: $MAX_CODE"
           echo "Next versionCode: $NEXT_VER_CODE"
 
+      - name: Set up Python for APKMirror scraper
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install APKMirror scraper dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Start APKMirror Cloudflare solver
+        run: |
+          set -euo pipefail
+          docker run -d --name apkmirror-cf-solver -p 8000:8000 ghcr.io/sarperavci/cloudflarebypassforscraping:latest
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8000/docs >/dev/null 2>&1; then
+              echo "Cloudflare solver is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Cloudflare solver did not become ready"
+          docker logs apkmirror-cf-solver || true
+          exit 1
+
       - name: Build modules/APKs
         run: if [ -f "config.json" ]; then ./build.sh config.json; else ./build.sh "$CONFIG_FILE"; fi
         env:
