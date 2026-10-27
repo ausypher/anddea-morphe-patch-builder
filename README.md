@@ -1,6 +1,6 @@
 # Anddea Morphe Patch Builder
 
-A customized Morphe patch builder that uses **patches maintained by Anddea** and builds separate development (dev) and stable releases of YouTube and YouTube Music.
+A customized builder based on [elohim-etz/morphe-builder](https://github.com/elohim-etz/morphe-builder). It uses **patches maintained by Anddea** and builds separate development (dev) and stable releases of YouTube and YouTube Music.
 
 ## APK sources
 
