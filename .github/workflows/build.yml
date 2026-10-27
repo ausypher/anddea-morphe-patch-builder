@@ -340,9 +340,9 @@ jobs:
 
           gh release upload "$TAG" "${ASSETS[@]}" --clobber
           if [ "$CHANNEL" = "dev" ]; then
-            gh release edit "$TAG" --title "$PATCH_VERSION (dev)" --notes-file payload/build.md --prerelease
+            gh release edit "$TAG" --title "$PATCH_VERSION (dev)" --notes-file payload/build.md --prerelease --draft=false
           else
-            gh release edit "$TAG" --title "$PATCH_VERSION (stable)" --notes-file payload/build.md --prerelease=false
+            gh release edit "$TAG" --title "$PATCH_VERSION (stable)" --notes-file payload/build.md --prerelease=false --draft=false
           fi
           echo "Published $TAG ($PATCH_VERSION, $CHANNEL)"
 
