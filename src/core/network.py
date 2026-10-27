@@ -91,6 +91,7 @@ class NetworkManager:
         try:
             resp = requests.get(f"{_SOLVER_URL}/cookies", params={"url": url}, timeout=60)
             if resp.status_code != 200:
+                epr(f"Challenge solver returned HTTP {resp.status_code} for {url}")
                 return False
 
             resp_any: Any = resp
@@ -122,8 +123,16 @@ class NetworkManager:
                     resp = self.session.get(url, timeout=(5, 10), allow_redirects=True, headers=headers, verify=True)
 
                 if _is_challenge(resp):
-                    epr(f"JS challenge detected for {url}, attempting solver bypass ({attempt}/{_MAX_ATTEMPTS})")
-                    self._solve_challenge(url)
+                    server = resp.headers.get("server", "unknown")
+                    ray_id = resp.headers.get("cf-ray", "not-present")
+                    epr(
+                        f"HTTP {resp.status_code} challenge/block for {url} "
+                        f"(server={server}, cf-ray={ray_id}); solver attempt "
+                        f"{attempt}/{_MAX_ATTEMPTS}"
+                    )
+                    solved = self._solve_challenge(url)
+                    if not solved:
+                        epr("Challenge solver did not return usable cookies; retrying request")
                     _retry_sleep(attempt)
                     continue
 
@@ -136,7 +145,11 @@ class NetworkManager:
                 last_exc = exc
                 epr(f"Request error for {url}, attempt {attempt}/{_MAX_ATTEMPTS}: {exc}")
                 _retry_sleep(attempt)
-        raise NetworkError(f"Request failed after {_MAX_ATTEMPTS} attempts: {url}") from last_exc
+        raise NetworkError(
+            f"Request failed after {_MAX_ATTEMPTS} attempts: {url}. "
+            "If the log reports HTTP 403 without a successful solver response, "
+            "the remote site may be blocking the runner rather than returning a normal page."
+        ) from last_exc
 
     def download(self, url: str, dest: Path, headers: dict[str, str] | None = None) -> None:
         if dest.exists():
