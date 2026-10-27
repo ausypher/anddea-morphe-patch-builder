@@ -106,6 +106,16 @@ jobs:
           echo "Previous versionCode: $MAX_CODE"
           echo "Next versionCode: $NEXT_VER_CODE"
 
+      - name: Set up Python for APKMirror scraper
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install APKMirror scraper dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
       - name: Build modules/APKs
         run: if [ -f "config.json" ]; then ./build.sh config.json; else ./build.sh "$CONFIG_FILE"; fi
         env:
