@@ -92,12 +92,13 @@ jobs:
         run: |
           set -euo pipefail
           DATE=$(date -u +%F)
+          TIMESTAMP=$(date -u +%Y-%m-%d-%H%M%S)
           TAG=""
           for ATTEMPT in $(seq 1 100); do
             if [ "$ATTEMPT" -eq 1 ]; then
-              CANDIDATE="$CHANNEL-$DATE"
+              CANDIDATE="$CHANNEL-$TIMESTAMP"
             else
-              CANDIDATE="$CHANNEL-$DATE-$((ATTEMPT - 1))"
+              CANDIDATE="$CHANNEL-$TIMESTAMP-$((ATTEMPT - 1))"
             fi
 
             if gh release view "$CANDIDATE" >/dev/null 2>&1; then
