@@ -5,7 +5,7 @@ CWD=$(pwd)
 TEMP_DIR="temp"
 BIN_DIR="bin"
 BUILD_DIR="build"
-DL_SRCS=("direct" "apkmirror" "archive")
+DL_SRCS=("apkmirror" "apkpure" "github" "archive" "direct")
 
 if [ "${GITHUB_TOKEN-}" ]; then GH_HEADER="Authorization: token ${GITHUB_TOKEN}"; else GH_HEADER=; fi
 NEXT_VER_CODE=${NEXT_VER_CODE:-$(date +'%Y%m%d')}
@@ -414,6 +414,136 @@ get_apkmirror_resp() {
 	__APKMIRROR_JSON__=$(python3 apkmirror_bridge.py metadata "$1") || return 1
 	__APKMIRROR_CAT__=$(jq -r '.category // empty' <<<"$__APKMIRROR_JSON__")
 }
+# -------------------- APKPure fallback --------------------
+# APKPure is download-only here: exact package/version discovery remains with
+# APKMirror/GitHub/Archive, and check_sig() is the acceptance gate.
+get_apkpure_resp() { :; }
+get_apkpure_pkg_name() {
+  local url="${args[apkpure_dlurl]%/}"
+  [ -n "$url" ] || return 1
+  printf "%s\\n" "${url##*/}"
+}
+get_apkpure_vers() { return 1; }
+dl_apkpure() {
+  local _url="$1" version="$2" output="$3" arch="$4" _dpi="$5"
+  rm -f "$output" "${output}.apkm"
+  pr "Using APKPure fallback for $pkg_name $version ($arch)"
+  if ! python3 src/scrapers/apkpure_download.py "$pkg_name" "$version" "$arch" "$output"; then
+    epr "APKPure download failed for $pkg_name $version ($arch)"
+    rm -f "$output"
+    return 1
+  fi
+  [ -s "$output" ]
+}
+# --------------------------------------------------
+# -------------------- github releases --------------------
+get_github_resp() {
+	__GITHUB_JSON__=$(python3 source_bridge.py github metadata "$1") || return 1
+}
+get_github_pkg_name() {
+	jq -r '.pkg_name // empty' <<<"${__GITHUB_JSON__:-}"
+}
+get_github_vers() {
+	jq -r '.versions[]?' <<<"${__GITHUB_JSON__:-}"
+}
+dl_github() {
+	local url=$1 version=$2 output=$3 arch=$4 dpi=$5
+	rm -f "$output" "${output}.apkm"
+	if ! python3 source_bridge.py github download "$url" "$version" "$output" "$arch" "$dpi"; then
+		epr "GitHub release download failed for version '$version', arch '$arch'"
+		return 1
+	fi
+	if [ -f "${output}.apkm" ]; then
+		merge_splits "${output}.apkm" "$output" || return 1
+	elif [ ! -f "$output" ]; then
+		epr "GitHub release returned without an APK"
+		return 1
+	fi
+	return 0
+}
+
+# -------------------- stock APK cache (GitHub Releases) --------------------
+_cache_asset_stem() {
+  local pkg="$1" version="$2" arch="$3"
+  pkg=$(printf '%s' "$pkg" | tr -c 'A-Za-z0-9._+-' '-')
+  version=$(printf '%s' "$version" | tr -c 'A-Za-z0-9._+-' '-')
+  arch=$(printf '%s' "$arch" | tr -c 'A-Za-z0-9._+-' '-')
+  printf 'stock__%s__%s__%s' "$pkg" "$version" "$arch"
+}
+cache_download() {
+  local pkg="$1" version="$2" arch="$3" output="$4"
+  [ -n "${GITHUB_REPOSITORY-}" ] || return 1
+  command -v gh >/dev/null 2>&1 || return 1
+  local dir="${TEMP_DIR}/apk-cache" stem ext asset checksum
+  stem=$(_cache_asset_stem "$pkg" "$version" "$arch")
+  mkdir -p "$dir"
+  if gh release view stock-cache >/dev/null 2>&1; then
+    # Convert the old public cache release to a draft before reading its assets.
+    if ! gh release edit stock-cache --draft >/dev/null 2>&1; then
+      wpr "Could not hide stock-cache release; skipping cache to protect ObtainX"
+      return 1
+    fi
+  else
+    return 1
+  fi
+  for ext in apk apkm; do
+    asset="${stem}.${ext}"; checksum="${asset}.sha256"
+    rm -f "$dir/$asset" "$dir/$checksum"
+    if ! gh release download stock-cache --pattern "$asset" --pattern "$checksum" --dir "$dir" >/dev/null 2>&1; then continue; fi
+    if ! (cd "$dir" && sha256sum -c "$checksum" >/dev/null 2>&1) || ! unzip -tq "$dir/$asset" >/dev/null 2>&1; then
+      epr "Cached APK failed checksum/archive validation: $asset"
+      rm -f "$dir/$asset" "$dir/$checksum"
+      continue
+    fi
+    if [ "$ext" = apkm ]; then
+      local base_apk="${dir}/${stem}.base.apk"
+      unzip -p "$dir/$asset" base.apk > "$base_apk" 2>/dev/null || { rm -f "$base_apk"; continue; }
+      if ! check_sig "$base_apk" "$pkg" >/dev/null 2>&1; then
+        epr "Cached APKM signature mismatch: $asset"
+        rm -f "$base_apk"
+        continue
+      fi
+      rm -f "$base_apk"
+      cp -f "$dir/$asset" "${output}.apkm"
+      merge_splits "${output}.apkm" "$output" || { rm -f "${output}.apkm" "$output"; continue; }
+    else
+      cp -f "$dir/$asset" "$output"
+      if ! check_sig "$output" "$pkg" >/dev/null 2>&1; then
+        epr "Cached APK signature mismatch: $asset"
+        rm -f "$output"
+        continue
+      fi
+    fi
+    pr "Using cached stock APK: $pkg $version ($arch)"
+    return 0
+  done
+  return 1
+}
+cache_upload() {
+  local pkg="$1" version="$2" arch="$3" input="$4" source ext dir stem asset checksum
+  [ -n "${GITHUB_REPOSITORY-}" ] || return 0
+  command -v gh >/dev/null 2>&1 || { wpr "GitHub CLI unavailable; skipping APK cache upload"; return 0; }
+  source="$input"; ext=apk
+  if [ -s "${input}.apkm" ]; then source="${input}.apkm"; ext=apkm; fi
+  [ -s "$source" ] || return 0
+  if ! unzip -tq "$source" >/dev/null 2>&1; then wpr "Stock APK failed archive validation; not caching"; return 0; fi
+  dir="${TEMP_DIR}/apk-cache-upload"
+  stem=$(_cache_asset_stem "$pkg" "$version" "$arch")
+  asset="${stem}.${ext}"; checksum="${asset}.sha256"
+  mkdir -p "$dir"; cp -f "$source" "$dir/$asset"
+  (cd "$dir" && sha256sum "$asset" > "$checksum")
+  if ! gh release view stock-cache >/dev/null 2>&1; then
+    gh release create stock-cache --draft --title "Stock APK cache" --notes "Original APK cache keyed by package, version and architecture." >/dev/null || { wpr "Could not create stock-cache release"; return 0; }
+  else
+    # Keep the cache invisible to public release trackers such as ObtainX.
+    gh release edit stock-cache --draft >/dev/null || { wpr "Could not hide stock-cache release from public release feeds"; return 0; }
+  fi
+  if gh release upload stock-cache "$dir/$asset" "$dir/$checksum" --clobber >/dev/null; then
+    pr "Cached stock APK: $pkg $version ($arch)"
+  else
+    wpr "Could not upload stock APK to cache"
+  fi
+}
 # -------------------- archive --------------------
 dl_archive() {
 	local url=$1 version=$2 output=$3 arch=$4
@@ -579,28 +709,32 @@ build_rv() {
 	local version_f=${version// /}
 	version_f=${version_f#v}
 	local stock_apk="${TEMP_DIR}/${pkg_name}-${version_f}-${arch_f}.apk"
+	local stock_from_cache=false
 	if [ ! -f "$stock_apk" ]; then
-		for dl_p in "${DL_SRCS[@]}"; do
-			if [ -z "${args[${dl_p}_dlurl]}" ]; then continue; fi
-			pr "Downloading '${table}' from '${dl_p}'"
-			if ! isoneof "$dl_p" "${tried_dl[@]}"; then
-				if ! get_"${dl_p}"_resp "${args[${dl_p}_dlurl]}"; then
-					epr "ERROR: Could not get '${table}' from '${dl_p}'"
+		if cache_download "$pkg_name" "$version" "$arch" "$stock_apk"; then
+			stock_from_cache=true
+		else
+			for dl_p in "${DL_SRCS[@]}"; do
+				if [ -z "${args[${dl_p}_dlurl]}" ]; then continue; fi
+				pr "Downloading '${table}' from '${dl_p}'"
+				if ! isoneof "$dl_p" "${tried_dl[@]}"; then
+					if ! get_"${dl_p}"_resp "${args[${dl_p}_dlurl]}"; then
+						epr "ERROR: Could not get '${table}' from '${dl_p}'"
+						continue
+					fi
+				fi
+				if ! dl_"${dl_p}" "${args[${dl_p}_dlurl]}" "$version" "$stock_apk" "$arch" "${args[dpi]}" "$get_latest_ver"; then
+					epr "ERROR: Could not download '${table}' from '${dl_p}' with version '${version}', arch '${arch}', dpi '${args[dpi]}'"
 					continue
 				fi
-			fi
-			if ! dl_"${dl_p}" "${args[${dl_p}_dlurl]}" "$version" "$stock_apk" "$arch" "${args[dpi]}" "$get_latest_ver"; then
-				epr "ERROR: Could not download '${table}' from '${dl_p}' with version '${version}', arch '${arch}', dpi '${args[dpi]}'"
-				continue
-			fi
-			break
-		done
+				break
+			done
+		fi
 		if [ ! -f "$stock_apk" ]; then
 			epr "Stock apk not found ($stock_apk)"
 			return 0
 		fi
 	fi
-
 	local sig_op
 	if [ -f "${stock_apk}.apkm" ]; then
 		rm -rf "${stock_apk}-zip" || :
@@ -617,6 +751,10 @@ build_rv() {
 			return 0
 		fi
 	fi
+	if [ "$stock_from_cache" != true ]; then
+		cache_upload "$pkg_name" "$version" "$arch" "$stock_apk"
+	fi
+
 	log "${table}: ${version}"
 	if [ "${args[patcher_args]}" ]; then p_patcher_args+=("${args[patcher_args]}"); fi
 
