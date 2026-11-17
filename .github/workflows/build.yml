@@ -205,6 +205,7 @@ jobs:
             ./build.sh "$CONFIG_FILE"
           fi
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           NEXT_VER_CODE: ${{ needs.prepare.outputs.next_ver_code }}
