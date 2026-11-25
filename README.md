@@ -18,6 +18,10 @@ APKMirror access may be affected by the website's anti-bot protection, so the ar
 
 Patches used for builds are maintained by [Anddea](https://github.com/anddea) in the [Anddea ReVanced patches repository](https://github.com/anddea/revanced-patches). This builder also uses Morphe desktop tooling to apply the selected patches.
 
+## Engineering inspiration
+
+This project also draws on valuable ideas and practical engineering solutions from [**pmaxhogan/vantage**](https://github.com/pmaxhogan/vantage). Its approach to reliable APK acquisition and build automation is an important reference, particularly stock-APK caching, signing-certificate verification, multiple download sources with fallbacks, and resilient download tooling. These ideas are adapted where appropriate to this project's own architecture and requirements.
+
 ## Releases
 
 - **Stable releases** are published as regular GitHub releases.
